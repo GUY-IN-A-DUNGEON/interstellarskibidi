@@ -4,7 +4,9 @@ const dots = [];
 const numDots = 100;
 const maxDistance = 100; // Maximum distance for lines to disappear
 const fadeSpeed = 0.02; // Speed at which the dots fade in and out
-const repelDistance = 150; // Distance at which dots move away from the cursor
+const repelDistance = 150; // Distance at which dots move faster away from the cursor
+const dotSpeed = 0.5; // Base speed for dot movement
+const increasedSpeed = 2; // Speed increase when cursor is near
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -12,9 +14,13 @@ canvas.height = window.innerHeight;
 function Dot(x, y) {
     this.x = x;
     this.y = y;
+    this.originalX = x;
+    this.originalY = y;
     this.radius = 2;
     this.opacity = 1;
     this.fadeIn = true;
+    this.angle = Math.random() * Math.PI * 2;
+    this.speed = dotSpeed;
 }
 
 Dot.prototype.draw = function () {
@@ -28,12 +34,24 @@ Dot.prototype.update = function (mouseX, mouseY) {
     const dx = mouseX - this.x;
     const dy = mouseY - this.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance < repelDistance) {
-        this.x -= dx / distance;
-        this.y -= dy / distance;
-    }
 
+    // Increase speed if the mouse is close
+    this.speed = distance < repelDistance ? dotSpeed * increasedSpeed : dotSpeed;
+    
+    // Move the dot
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+
+    // Change direction slightly
+    this.angle += (Math.random() - 0.5) * 0.1;
+
+    // Wrap around the canvas edges
+    if (this.x > canvas.width) this.x = 0;
+    if (this.x < 0) this.x = canvas.width;
+    if (this.y > canvas.height) this.y = 0;
+    if (this.y < 0) this.y = canvas.height;
+
+    // Fade in and out
     if (this.fadeIn) {
         this.opacity += fadeSpeed;
         if (this.opacity >= 1) this.fadeIn = false;
