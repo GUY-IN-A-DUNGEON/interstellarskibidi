@@ -1,81 +1,119 @@
-const canvas = document.createElement('canvas');
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-document.getElementById('stars').appendChild(canvas);
+const dots = [];
+const numDots = 100;
+const maxDistance = 100; // Maximum distance for lines to disappear
+const fadeSpeed = 0.02; // Speed at which the dots fade in and out
+const repelDistance = 150; // Distance at which dots move faster away from the cursor
+const dotSpeed = 0.2; // Base speed for dot movement
+const increasedSpeed = 1.5; // Speed increase when cursor is near
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    createStars();
-});
-
-const numStars = 200;
-const stars = [];
-const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
-
-class Star {
-    constructor() {
-        this.reset();
-    }
-
-    reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.z = Math.random() * canvas.width;
-        this.initialZ = this.z;
-    }
-
-    update() {
-        const dx = mouse.x - (this.x - canvas.width / 2) * (canvas.width / this.z);
-        const dy = mouse.y - (this.y - canvas.height / 2) * (canvas.width / this.z);
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        const moveFactor = Math.min(10, 1 / (this.z / canvas.width));
-        this.z -= 2 + moveFactor;
-        if (this.z <= 0) {
-            this.reset();
-        }
-
-        if (dist < 100) {
-            this.x += (Math.random() - 0.5) * moveFactor;
-            this.y += (Math.random() - 0.5) * moveFactor;
-        }
-    }
-
-    draw() {
-        const x = (this.x - canvas.width / 2) * (canvas.width / this.z);
-        const y = (this.y - canvas.height / 2) * (canvas.width / this.z);
-        const size = canvas.width / this.z;
-        ctx.beginPath();
-        ctx.arc(x + canvas.width / 2, y + canvas.height / 2, size, 0, Math.PI * 2);
-        ctx.fillStyle = 'white';
-        ctx.fill();
-    }
+function Dot(x, y) {
+    this.x = x;
+    this.y = y;
+    this.originalX = x;
+    this.originalY = y;
+    this.radius = 2;
+    this.opacity = 1;
+    this.fadeIn = true;
+    this.angle = Math.random() * Math.PI * 2;
+    this.speed = dotSpeed;
 }
 
-function createStars() {
-    stars.length = 0;
-    for (let i = 0; i < numStars; i++) {
-        stars.push(new Star());
+Dot.prototype.draw = function () {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+    ctx.fill();
+};
+
+Dot.prototype.update = function (mouseX, mouseY) {
+    const dx = mouseX - this.x;
+    const dy = mouseY - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Increase speed if the mouse is close
+    this.speed = distance < repelDistance ? dotSpeed * increasedSpeed : dotSpeed;
+    
+    // Move the dot
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+
+    // Change direction slightly
+    this.angle += (Math.random() - 0.5) * 0.1;
+
+    // Wrap around the canvas edges
+    if (this.x > canvas.width) this.x = 0;
+    if (this.x < 0) this.x = canvas.width;
+    if (this.y > canvas.height) this.y = 0;
+    if (this.y < 0) this.y = canvas.height;
+
+    // Fade in and out
+    if (this.fadeIn) {
+        this.opacity += fadeSpeed;
+        if (this.opacity >= 1) this.fadeIn = false;
+    } else {
+        this.opacity -= fadeSpeed;
+        if (this.opacity <= 0) this.fadeIn = true;
+    }
+    
+    this.draw();
+};
+
+function Line(dot1, dot2) {
+    this.dot1 = dot1;
+    this.dot2 = dot2;
+}
+
+Line.prototype.draw = function () {
+    const dx = this.dot1.x - this.dot2.x;
+    const dy = this.dot1.y - this.dot2.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance < maxDistance) {
+        ctx.beginPath();
+        ctx.moveTo(this.dot1.x, this.dot1.y);
+        ctx.lineTo(this.dot2.x, this.dot2.y);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - distance / maxDistance)})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+};
+
+function init() {
+    for (let i = 0; i < numDots; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        dots.push(new Dot(x, y));
     }
 }
 
 function animate() {
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    stars.forEach(star => {
-        star.update();
-        star.draw();
-    });
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < dots.length; i++) {
+        dots[i].update(mouseX, mouseY);
+    }
+
+    for (let i = 0; i < dots.length; i++) {
+        for (let j = i + 1; j < dots.length; j++) {
+            new Line(dots[i], dots[j]).draw();
+        }
+    }
+
     requestAnimationFrame(animate);
 }
 
-createStars();
-animate();
+let mouseX = canvas.width / 2;
+let mouseY = canvas.height / 2;
 
-canvas.addEventListener('mousemove', (event) => {
-    mouse.x = event.clientX;
-    mouse.y = event.clientY;
+window.addEventListener('mousemove', (event) => {
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 });
+
+init();
+animate();
